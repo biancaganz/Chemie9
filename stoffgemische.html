@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="de" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Chemie 9: Stoffgemische ordnen</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: #f1f5f9;
+            touch-action: manipulation;
+        }
+        /* Lock screen height specifically for iPad viewport without scrolling */
+        .app-viewport {
+            height: 100vh;
+            height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .touch-card {
+            touch-action: none;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+        }
+        .touch-card:active {
+            transform: scale(0.97);
+        }
+        .shake {
+            animation: shake 0.35s cubic-bezier(.36,.07,.19,.97) both;
+        }
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-2px, 0, 0); }
+            20%, 80% { transform: translate3d(3px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-5px, 0, 0); }
+            40%, 60% { transform: translate3d(5px, 0, 0); }
+        }
+        .pop {
+            animation: pop 0.25s ease-out forwards;
+        }
+        @keyframes pop {
+            0% { transform: scale(0.92); opacity: 0; }
+            70% { transform: scale(1.03); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        #confetti-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 100;
+        }
+        /* Custom scrollbars for modal/level2 */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="h-full text-slate-800 antialiased selection:bg-indigo-500 selection:text-white">
+
+    <canvas id="confetti-canvas"></canvas>
+
+    <div class="app-viewport max-w-[1024px] mx-auto w-full px-3 py-2 justify-between">
+
+        <!-- Compact Header & Navigation (Optimized for 1024x768) -->
+        <header class="bg-indigo-600 text-white rounded-2xl px-4 py-2 shadow-sm flex items-center justify-between shrink-0">
+            <div class="flex items-center space-x-2.5">
+                <div class="p-1.5 bg-indigo-500/80 rounded-xl">
+                    <svg class="w-5 h-5 text-yellow-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-base font-bold leading-none">Chemie 9: Stoffgemische</h1>
+                    <span class="text-[11px] text-indigo-200">Realschule • Homogen & Heterogen</span>
+                </div>
+            </div>
+
+            <!-- Level Selector & Actions -->
+            <div class="flex items-center space-x-2">
+                <button id="btn-tab-1" onclick="switchLevel(1)" class="px-3 py-1.5 rounded-xl text-xs font-semibold transition-all bg-white text-indigo-700 shadow-sm">
+                    Stufe 1: Zuordnung
+                </button>
+                <button id="btn-tab-2" onclick="switchLevel(2)" class="px-3 py-1.5 rounded-xl text-xs font-semibold transition-all bg-indigo-700/80 hover:bg-indigo-700 text-white">
+                    Stufe 2: Fachbegriffe
+                </button>
+                <button onclick="toggleHelpModal()" class="px-2.5 py-1.5 bg-indigo-500 hover:bg-indigo-400 rounded-xl text-xs font-medium text-white transition flex items-center gap-1">
+                    💡 <span>Spickzettel</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Status & Stats Bar -->
+        <div class="my-1.5 bg-white rounded-xl px-3 py-1.5 shadow-sm border border-slate-200/80 flex items-center justify-between shrink-0 text-xs">
+            <div class="flex items-center space-x-3">
+                <span class="font-semibold text-slate-500">Fortschritt:</span>
+                <div class="w-36 sm:w-48 bg-slate-100 h-2.5 rounded-full overflow-hidden border border-slate-200/60">
+                    <div id="progress-bar" class="bg-emerald-500 h-full w-0 transition-all duration-300"></div>
+                </div>
+                <span id="progress-text" class="font-bold text-slate-700 min-w-[65px]">0 / 8 gelöst</span>
+            </div>
+            <div class="flex items-center space-x-3">
+                <div class="font-medium">
+                    <span class="text-slate-400">Fehler:</span>
+                    <span id="error-count" class="font-bold text-rose-500 ml-1">0</span>
+                </div>
+                <button onclick="resetCurrentLevel()" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg font-medium transition text-[11px]">
+                    🔄 Neustart
+                </button>
+            </div>
+        </div>
+
+        <!-- ================= STUFE 1: HOMOGEN VS HETEROGEN (ZERO SCROLLING IPAD) ================= -->
+        <div id="level-1" class="flex-grow flex flex-col min-h-0 space-y-2">
+            
+            <!-- Compact Card Pool (Vorrat) -->
+            <div class="bg-white p-2.5 rounded-2xl shadow-sm border border-slate-200 shrink-0">
+                <div class="flex justify-between items-center mb-1.5 px-1">
+                    <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                        1. Stoff wählen (tippen) ➔ 2. Zielbereich antippen
+                    </span>
+                    <span id="selected-indicator" class="text-xs font-semibold text-indigo-600 hidden">
+                        Wähle jetzt: Homogen oder Heterogen!
+                    </span>
+                </div>
+                <div id="cards-container-l1" class="grid grid-cols-4 gap-2 min-h-[96px] p-1.5 bg-slate-50/80 rounded-xl border border-dashed border-slate-300/80">
+                    <!-- Dynamic iPad Optimized Cards -->
+                </div>
+            </div>
+
+            <!-- Equal Height Drop Target Columns -->
+            <div class="grid grid-cols-2 gap-3 flex-grow min-h-0">
+                
+                <!-- Homogen Zone -->
+                <div id="zone-homogen" onclick="handleZoneClick('homogen')" 
+                     class="bg-emerald-50/70 border-2 border-emerald-300/80 hover:border-emerald-500 rounded-2xl p-2.5 flex flex-col min-h-0 shadow-sm transition-all cursor-pointer">
+                    <div class="flex items-center justify-between pb-1.5 border-b border-emerald-200/80 shrink-0 px-1">
+                        <div class="flex items-center space-x-1.5">
+                            <span class="text-lg">🔍</span>
+                            <h2 class="font-bold text-sm text-emerald-950">Homogene Gemische</h2>
+                        </div>
+                        <span class="text-[10px] bg-emerald-200/80 text-emerald-800 font-semibold px-2 py-0.5 rounded-full">1-phasig</span>
+                    </div>
+                    <p class="text-[11px] text-emerald-700/90 my-1 px-1 shrink-0">Bestandteile nicht erkennbar (z.B. gelöst, verschmolzen)</p>
+                    <div id="drop-homogen" class="flex-grow flex flex-col gap-1.5 p-1 overflow-y-auto">
+                        <!-- Placed items -->
+                    </div>
+                </div>
+
+                <!-- Heterogen Zone -->
+                <div id="zone-heterogen" onclick="handleZoneClick('heterogen')" 
+                     class="bg-amber-50/70 border-2 border-amber-300/80 hover:border-amber-500 rounded-2xl p-2.5 flex flex-col min-h-0 shadow-sm transition-all cursor-pointer">
+                    <div class="flex items-center justify-between pb-1.5 border-b border-amber-200/80 shrink-0 px-1">
+                        <div class="flex items-center space-x-1.5">
+                            <span class="text-lg">👀</span>
+                            <h2 class="font-bold text-sm text-amber-950">Heterogene Gemische</h2>
+                        </div>
+                        <span class="text-[10px] bg-amber-200/80 text-amber-800 font-semibold px-2 py-0.5 rounded-full">mehrphasig</span>
+                    </div>
+                    <p class="text-[11px] text-amber-700/90 my-1 px-1 shrink-0">Bestandteile sichtbar / voneinander trennbar</p>
+                    <div id="drop-heterogen" class="flex-grow flex flex-col gap-1.5 p-1 overflow-y-auto">
+                        <!-- Placed items -->
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- ================= STUFE 2: FACHBEGRIFFE & ZUSTÄNDE ================= -->
+        <div id="level-2" class="flex-grow flex flex-col min-h-0 hidden">
+            <div class="bg-purple-50 border-l-4 border-purple-500 p-2 rounded-r-xl shadow-sm shrink-0 mb-2">
+                <p class="text-xs text-purple-900 font-medium">
+                    🧪 <strong>Stufe 2:</strong> Wähle für jedes Stoffgemisch den passenden <strong>Fachbegriff</strong> und die <strong>Aggregatzustände</strong>!
+                </p>
+            </div>
+
+            <div id="matching-grid-l2" class="grid grid-cols-2 gap-2.5 flex-grow overflow-y-auto pr-1">
+                <!-- Level 2 Card items rendered dynamically -->
+            </div>
+        </div>
+
+    </div>
+
+    <!-- HILFE / SPICKZETTEL MODAL -->
+    <div id="help-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl max-w-xl w-full p-5 shadow-2xl space-y-3 max-h-[90vh] overflow-y-auto pop">
+            <div class="flex justify-between items-center border-b pb-2">
+                <h3 class="text-base font-bold text-indigo-900 flex items-center gap-1.5">
+                    💡 Chemie-Spickzettel: Stoffgemische
+                </h3>
+                <button onclick="toggleHelpModal()" class="text-slate-400 hover:text-slate-600 text-lg font-bold p-1">✕</button>
+            </div>
+            
+            <div class="space-y-2 text-xs text-slate-700">
+                <div class="p-2.5 bg-indigo-50/70 rounded-xl border border-indigo-100">
+                    <h4 class="font-bold text-indigo-900 mb-0.5">Grundregel</h4>
+                    <p>• <strong>Homogen:</strong> Vollkommen gleichmäßige Mischung (z.B. gelöstes Salz, Legierungen, Luft).</p>
+                    <p>• <strong>Heterogen:</strong> Bestandteile lassen sich optisch abgrenzen (z.B. Tröpfchen, Krümel, Bläschen).</p>
+                </div>
+
+                <h4 class="font-bold text-slate-800 pt-1">Begriffe & Zustände im Überblick:</h4>
+                <div class="grid grid-cols-2 gap-1.5 text-[11px]">
+                    <div class="p-2 border rounded-lg bg-emerald-50/60">
+                        <strong class="text-emerald-900 block">Lösung (homogen)</strong>
+                        fest/gasförmig/flüssig in flüssig
+                    </div>
+                    <div class="p-2 border rounded-lg bg-emerald-50/60">
+                        <strong class="text-emerald-900 block">Legierung (homogen)</strong>
+                        fest in fest (z.B. Messing)
+                    </div>
+                    <div class="p-2 border rounded-lg bg-emerald-50/60">
+                        <strong class="text-emerald-900 block">Gasgemisch (homogen)</strong>
+                        gasförmig in gasförmig (Luft)
+                    </div>
+                    <div class="p-2 border rounded-lg bg-amber-50/60">
+                        <strong class="text-amber-900 block">Suspension (heterogen)</strong>
+                        fest in flüssig (z.B. Fruchtfleisch)
+                    </div>
+                    <div class="p-2 border rounded-lg bg-amber-50/60">
+                        <strong class="text-amber-900 block">Emulsion (heterogen)</strong>
+                        flüssig in flüssig (z.B. Milch)
+                    </div>
+                    <div class="p-2 border rounded-lg bg-amber-50/60">
+                        <strong class="text-amber-900 block">Schaum (heterogen)</strong>
+                        gasförmig in flüssig (z.B. Seife)
+                    </div>
+                    <div class="p-2 border rounded-lg bg-amber-50/60">
+                        <strong class="text-amber-900 block">Nebel (heterogen)</strong>
+                        flüssig in gasförmig (Wassertröpfchen)
+                    </div>
+                    <div class="p-2 border rounded-lg bg-amber-50/60">
+                        <strong class="text-amber-900 block">Rauch (heterogen)</strong>
+                        fest in gasförmig (Rußpartikel)
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-right pt-2 border-t">
+                <button onclick="toggleHelpModal()" class="px-4 py-1.5 bg-indigo-600 text-white font-medium text-xs rounded-xl hover:bg-indigo-700 transition">
+                    Verstanden!
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- WIN MODAL -->
+    <div id="win-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4 pop">
+            <div class="w-16 h-16 bg-emerald-100 text-emerald-500 rounded-full flex items-center justify-center mx-auto text-3xl shadow-inner">
+                🏆
+            </div>
+            <div>
+                <h3 class="text-xl font-bold text-slate-800">Super gemacht!</h3>
+                <p id="win-message" class="text-xs text-slate-600 mt-1">Du hast alle Stoffgemische richtig eingeordnet.</p>
+            </div>
+            <div class="p-3 bg-slate-50 rounded-xl flex justify-around text-center border">
+                <div>
+                    <span class="text-[10px] text-slate-400 font-semibold block uppercase">Fehler</span>
+                    <span id="final-errors" class="text-base font-bold text-slate-700">0</span>
+                </div>
+                <div class="border-r border-slate-200"></div>
+                <div>
+                    <span class="text-[10px] text-slate-400 font-semibold block uppercase">Bewertung</span>
+                    <span id="final-rating" class="text-base font-bold text-amber-500">⭐⭐⭐</span>
+                </div>
+            </div>
+            <button id="btn-next-level" onclick="goToNextLevel()" class="w-full py-2.5 bg-indigo-600 text-white font-semibold text-xs rounded-xl hover:bg-indigo-700 transition shadow-md">
+                Nächste Stufe ➔
+            </button>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // Data Store
+        const mixturesData = [
+            {
+                id: 'milch',
+                name: 'Milch',
+                icon: '🥛',
+                category: 'heterogen',
+                term: 'Emulsion',
+                state: 'flüssig in flüssig',
+                hint: 'Fetttröpfchen sind feinst in Wasser verteilt.'
+            },
+            {
+                id: 'orangensaft',
+                name: 'Orangensaft mit Fruchtfleisch',
+                icon: '🍊',
+                category: 'heterogen',
+                term: 'Suspension',
+                state: 'fest in flüssig',
+                hint: 'Feste Fruchtfleischstücke schwimmen im Saft.'
+            },
+            {
+                id: 'seifenschaum',
+                name: 'Seifenschaum',
+                icon: '🧼',
+                category: 'heterogen',
+                term: 'Schaum',
+                state: 'gasförmig in flüssig',
+                hint: 'Luftbläschen in einer flüssigen Seifenhülle.'
+            },
+            {
+                id: 'luft',
+                name: 'Luft (sauber)',
+                icon: '🌬️',
+                category: 'homogen',
+                term: 'Gasgemisch',
+                state: 'gasförmig in gasförmig',
+                hint: 'Verschiedene Gase sind unsichtbar vermischt.'
+            },
+            {
+                id: 'messing',
+                name: 'Messing (Kupfer + Zink)',
+                icon: '🪙',
+                category: 'homogen',
+                term: 'Legierung',
+                state: 'fest in fest',
+                hint: 'Ein zusammen geschmolzenes Metallgemisch.'
+            },
+            {
+                id: 'mineralwasser',
+                name: 'Mineralwasser (gelöst)',
+                icon: '💧',
+                category: 'homogen',
+                term: 'Lösung',
+                state: 'fest/gasförmig in flüssig',
+                hint: 'Mineralstoffe sind vollständig gelöst.'
+            },
+            {
+                id: 'nebel',
+                name: 'Nebel / Wolke',
+                icon: '🌫️',
+                category: 'heterogen',
+                term: 'Nebel',
+                state: 'flüssig in gasförmig',
+                hint: 'Kleine Wassertröpfchen schweben in Luft.'
+            },
+            {
+                id: 'russ',
+                name: 'Rauch (Ruß in Luft)',
+                icon: '💨',
+                category: 'heterogen',
+                term: 'Rauch',
+                state: 'fest in gasförmig',
+                hint: 'Feste Rußpartikel schweben in Luft.'
+            }
+        ];
+
+        const termsOptions = ['Lösung', 'Legierung', 'Gasgemisch', 'Suspension', 'Emulsion', 'Rauch', 'Nebel', 'Schaum'];
+        const statesOptions = [
+            'fest in flüssig',
+            'flüssig in flüssig',
+            'gasförmig in flüssig',
+            'fest in gasförmig',
+            'flüssig in gasförmig',
+            'gasförmig in gasförmig',
+            'fest in fest',
+            'fest/gasförmig in flüssig'
+        ];
+
+        // State Management
+        let currentLevel = 1;
+        let selectedCardId = null;
+        let errors = 0;
+        let level1Solved = new Set();
+        let level2Solved = new Set();
+
+        // Audio Effects (Web Audio API)
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+
+        function playSound(type) {
+            try {
+                if (!audioCtx) audioCtx = new AudioContext();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                if (type === 'correct') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(523.25, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(659.25, audioCtx.currentTime + 0.12);
+                    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.2);
+                } else if (type === 'wrong') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(160, audioCtx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(100, audioCtx.currentTime + 0.18);
+                    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.2);
+                } else if (type === 'win') {
+                    const now = audioCtx.currentTime;
+                    [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+                        const noteOsc = audioCtx.createOscillator();
+                        const noteGain = audioCtx.createGain();
+                        noteOsc.connect(noteGain);
+                        noteGain.connect(audioCtx.destination);
+                        noteOsc.frequency.setValueAtTime(freq, now + i * 0.08);
+                        noteGain.gain.setValueAtTime(0.12, now + i * 0.08);
+                        noteGain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.08 + 0.25);
+                        noteOsc.start(now + i * 0.08);
+                        noteOsc.stop(now + i * 0.08 + 0.25);
+                    });
+                }
+            } catch (e) {
+                // Audio fallback
+            }
+        }
+
+        window.onload = () => {
+            initLevel1();
+            initLevel2();
+            updateProgress();
+        };
+
+        function switchLevel(lvl) {
+            currentLevel = lvl;
+            const btn1 = document.getElementById('btn-tab-1');
+            const btn2 = document.getElementById('btn-tab-2');
+            const view1 = document.getElementById('level-1');
+            const view2 = document.getElementById('level-2');
+
+            if (lvl === 1) {
+                btn1.className = "px-3 py-1.5 rounded-xl text-xs font-semibold transition-all bg-white text-indigo-700 shadow-sm";
+                btn2.className = "px-3 py-1.5 rounded-xl text-xs font-semibold transition-all bg-indigo-700/80 hover:bg-indigo-700 text-white";
+                view1.classList.remove('hidden');
+                view2.classList.add('hidden');
+            } else {
+                btn2.className = "px-3 py-1.5 rounded-xl text-xs font-semibold transition-all bg-white text-indigo-700 shadow-sm";
+                btn1.className = "px-3 py-1.5 rounded-xl text-xs font-semibold transition-all bg-indigo-700/80 hover:bg-indigo-700 text-white";
+                view2.classList.remove('hidden');
+                view1.classList.add('hidden');
+            }
+            updateProgress();
+        }
+
+        function initLevel1() {
+            const container = document.getElementById('cards-container-l1');
+            container.innerHTML = '';
+            document.getElementById('drop-homogen').innerHTML = '';
+            document.getElementById('drop-heterogen').innerHTML = '';
+            level1Solved.clear();
+            selectedCardId = null;
+            document.getElementById('selected-indicator').classList.add('hidden');
+
+            const shuffled = [...mixturesData].sort(() => Math.random() - 0.5);
+
+            shuffled.forEach(item => {
+                const card = document.createElement('div');
+                card.id = `card-l1-${item.id}`;
+                card.className = "touch-card flex items-center space-x-2 p-2 bg-white rounded-xl shadow-sm border border-slate-200/90 cursor-pointer hover:border-indigo-400 select-none pop";
+                card.draggable = true;
+                
+                card.innerHTML = `
+                    <span class="text-xl shrink-0">${item.icon}</span>
+                    <span class="font-semibold text-xs text-slate-800 leading-tight truncate">${item.name}</span>
+                `;
+
+                card.onclick = (e) => {
+                    e.stopPropagation();
+                    selectCardL1(item.id);
+                };
+
+                card.ondragstart = (e) => {
+                    e.dataTransfer.setData('text/plain', item.id);
+                    selectCardL1(item.id);
+                };
+
+                container.appendChild(card);
+            });
+
+            ['homogen', 'heterogen'].forEach(cat => {
+                const zone = document.getElementById(`zone-${cat}`);
+                zone.ondragover = (e) => e.preventDefault();
+                zone.ondrop = (e) => {
+                    e.preventDefault();
+                    const id = e.dataTransfer.getData('text/plain');
+                    if (id) evaluateL1(id, cat);
+                };
+            });
+        }
+
+        function selectCardL1(id) {
+            if (level1Solved.has(id)) return;
+            
+            mixturesData.forEach(item => {
+                const el = document.getElementById(`card-l1-${item.id}`);
+                if (el) {
+                    el.classList.remove('ring-2', 'ring-indigo-500', 'bg-indigo-50', 'border-indigo-400');
+                }
+            });
+
+            selectedCardId = id;
+            const selectedCard = document.getElementById(`card-l1-${id}`);
+            const indicator = document.getElementById('selected-indicator');
+
+            if (selectedCard) {
+                selectedCard.classList.add('ring-2', 'ring-indigo-500', 'bg-indigo-50', 'border-indigo-400');
+                indicator.classList.remove('hidden');
+            }
+        }
+
+        function handleZoneClick(category) {
+            if (!selectedCardId) return;
+            evaluateL1(selectedCardId, category);
+        }
+
+        function evaluateL1(id, category) {
+            const item = mixturesData.find(m => m.id === id);
+            const cardEl = document.getElementById(`card-l1-${id}`);
+
+            if (!item || !cardEl || level1Solved.has(id)) return;
+
+            if (item.category === category) {
+                playSound('correct');
+                level1Solved.add(id);
+                selectedCardId = null;
+                document.getElementById('selected-indicator').classList.add('hidden');
+
+                // Transform into compact placed card
+                cardEl.className = "flex items-center justify-between px-2.5 py-1.5 bg-white/90 rounded-lg border border-slate-200 text-xs shadow-2xs pop";
+                cardEl.draggable = false;
+                cardEl.onclick = null;
+                cardEl.innerHTML = `
+                    <div class="flex items-center space-x-2 truncate">
+                        <span class="text-base">${item.icon}</span>
+                        <span class="font-medium text-slate-800 truncate">${item.name}</span>
+                    </div>
+                    <span class="text-emerald-600 font-bold ml-1 shrink-0 text-xs">✓</span>
+                `;
+
+                const targetDrop = document.getElementById(`drop-${category}`);
+                targetDrop.appendChild(cardEl);
+
+                updateProgress();
+
+                if (level1Solved.size === mixturesData.length) {
+                    setTimeout(() => triggerWin(1), 250);
+                }
+            } else {
+                playSound('wrong');
+                errors++;
+                document.getElementById('error-count').innerText = errors;
+                
+                cardEl.classList.add('shake', 'border-rose-400');
+                setTimeout(() => {
+                    cardEl.classList.remove('shake', 'border-rose-400');
+                }, 400);
+            }
+        }
+
+        function initLevel2() {
+            const grid = document.getElementById('matching-grid-l2');
+            grid.innerHTML = '';
+            level2Solved.clear();
+
+            mixturesData.forEach(item => {
+                const card = document.createElement('div');
+                card.className = "bg-white rounded-xl p-2.5 border border-slate-200/90 shadow-2xs flex flex-col justify-between space-y-2";
+                
+                const shuffledTerms = [...termsOptions].sort(() => Math.random() - 0.5);
+                const shuffledStates = [...statesOptions].sort(() => Math.random() - 0.5);
+
+                card.innerHTML = `
+                    <div class="flex items-center space-x-2">
+                        <span class="text-2xl p-1 bg-slate-100 rounded-lg shrink-0">${item.icon}</span>
+                        <div class="truncate">
+                            <h4 class="font-bold text-slate-800 text-xs truncate">${item.name}</h4>
+                            <span class="text-[10px] text-indigo-700 font-semibold uppercase">${item.category}</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
+                        <div>
+                            <label class="block text-[10px] font-semibold text-slate-400 mb-0.5">Fachbegriff:</label>
+                            <select id="select-term-${item.id}" onchange="checkL2('${item.id}')" 
+                                    class="w-full text-xs p-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-indigo-500 outline-none">
+                                <option value="">-- wählen --</option>
+                                ${shuffledTerms.map(t => `<option value="${t}">${t}</option>`).join('')}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-[10px] font-semibold text-slate-400 mb-0.5">Zustände:</label>
+                            <select id="select-state-${item.id}" onchange="checkL2('${item.id}')" 
+                                    class="w-full text-xs p-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-indigo-500 outline-none">
+                                <option value="">-- wählen --</option>
+                                ${shuffledStates.map(s => `<option value="${s}">${s}</option>`).join('')}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="feedback-l2-${item.id}" class="text-[11px] font-medium min-h-[16px] truncate"></div>
+                `;
+
+                grid.appendChild(card);
+            });
+        }
+
+        function checkL2(id) {
+            const item = mixturesData.find(m => m.id === id);
+            const termSelect = document.getElementById(`select-term-${id}`);
+            const stateSelect = document.getElementById(`select-state-${id}`);
+            const feedback = document.getElementById(`feedback-l2-${id}`);
+
+            const selectedTerm = termSelect.value;
+            const selectedState = stateSelect.value;
+
+            if (!selectedTerm || !selectedState) {
+                feedback.innerHTML = '';
+                return;
+            }
+
+            if (selectedTerm === item.term && selectedState === item.state) {
+                if (!level2Solved.has(id)) {
+                    playSound('correct');
+                    level2Solved.add(id);
+                }
+                feedback.className = "text-[11px] font-semibold text-emerald-600 flex items-center gap-1";
+                feedback.innerHTML = "✓ Richtig gelöst!";
+
+                termSelect.classList.add('border-emerald-400', 'bg-emerald-50');
+                stateSelect.classList.add('border-emerald-400', 'bg-emerald-50');
+                termSelect.disabled = true;
+                stateSelect.disabled = true;
+
+                updateProgress();
+
+                if (level2Solved.size === mixturesData.length) {
+                    setTimeout(() => triggerWin(2), 250);
+                }
+            } else {
+                playSound('wrong');
+                errors++;
+                document.getElementById('error-count').innerText = errors;
+
+                feedback.className = "text-[11px] font-medium text-rose-500 truncate";
+                feedback.innerHTML = `❌ Tipp: ${item.hint}`;
+            }
+        }
+
+        function updateProgress() {
+            const count = currentLevel === 1 ? level1Solved.size : level2Solved.size;
+            const total = mixturesData.length;
+            const percent = (count / total) * 100;
+
+            document.getElementById('progress-bar').style.width = `${percent}%`;
+            document.getElementById('progress-text').innerText = `${count} / ${total} gelöst`;
+        }
+
+        function resetCurrentLevel() {
+            errors = 0;
+            document.getElementById('error-count').innerText = errors;
+            if (currentLevel === 1) {
+                initLevel1();
+            } else {
+                initLevel2();
+            }
+            updateProgress();
+        }
+
+        function toggleHelpModal() {
+            const modal = document.getElementById('help-modal');
+            modal.classList.toggle('hidden');
+        }
+
+        function triggerWin(lvl) {
+            playSound('win');
+            launchConfetti();
+
+            const winModal = document.getElementById('win-modal');
+            const winMessage = document.getElementById('win-message');
+            const finalErrors = document.getElementById('final-errors');
+            const finalRating = document.getElementById('final-rating');
+            const btnNext = document.getElementById('btn-next-level');
+
+            finalErrors.innerText = errors;
+
+            if (errors === 0) finalRating.innerText = '⭐⭐⭐ Perfekt!';
+            else if (errors <= 3) finalRating.innerText = '⭐⭐ Super!';
+            else finalRating.innerText = '⭐ Gut!';
+
+            if (lvl === 1) {
+                winMessage.innerText = 'Du hast alle Stoffe auf Stufe 1 perfekt zugeordnet!';
+                btnNext.innerText = 'Weiter zu Stufe 2 ➔';
+                btnNext.onclick = () => {
+                    winModal.classList.add('hidden');
+                    switchLevel(2);
+                };
+            } else {
+                winMessage.innerText = 'Klasse! Du beherrschst alle Fachbegriffe & Aggregatzustände!';
+                btnNext.innerText = 'Nochmal spielen 🔄';
+                btnNext.onclick = () => {
+                    winModal.classList.add('hidden');
+                    resetCurrentLevel();
+                    switchLevel(1);
+                };
+            }
+
+            winModal.classList.remove('hidden');
+        }
+
+        function goToNextLevel() {
+            document.getElementById('win-modal').classList.add('hidden');
+            switchLevel(2);
+        }
+
+        function launchConfetti() {
+            const canvas = document.getElementById('confetti-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            const particles = [];
+            const colors = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6'];
+
+            for (let i = 0; i < 70; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height - canvas.height,
+                    size: Math.random() * 7 + 4,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    vy: Math.random() * 3 + 2,
+                    vx: Math.random() * 2 - 1,
+                    rot: Math.random() * 360
+                });
+            }
+
+            let frame = 0;
+            function render() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                particles.forEach(p => {
+                    p.y += p.vy;
+                    p.x += p.vx;
+                    p.rot += 2;
+                    ctx.save();
+                    ctx.translate(p.x, p.y);
+                    ctx.rotate((p.rot * Math.PI) / 180);
+                    ctx.fillStyle = p.color;
+                    ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+                    ctx.restore();
+                });
+
+                frame++;
+                if (frame < 150) {
+                    requestAnimationFrame(render);
+                } else {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                }
+            }
+            render();
+        }
+    </script>
+</body>
+</html>
