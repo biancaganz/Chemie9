@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Teilchenmodell des Wassers</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
+    body { background-color: #f8fafc; color: #0f172a; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+    h1 { color: #1e3a8a; margin-bottom: 8px; font-size: 1.6rem; text-align: center; }
+    p.subtitle { color: #475569; font-size: 0.95rem; margin-bottom: 20px; text-align: center; }
+    
+    .container { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; max-width: 900px; width: 100%; }
+    .card { background: white; padding: 15px; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; align-items: center; }
+    .card h2 { font-size: 1.1rem; color: #334155; margin-bottom: 10px; }
+    
+    canvas { background: #fafafa; border: 1px solid #cbd5e1; border-radius: 8px; display: block; }
+
+    .controls { background: white; padding: 20px; border-radius: 12px; border: 1px solid #cbd5e1; max-width: 900px; width: 100%; margin-top: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+    .info-box { display: flex; justify-content: space-between; align-items: center; background: #e0f2fe; padding: 12px 20px; border-radius: 8px; margin-bottom: 15px; }
+    .temp-val { font-size: 1.6rem; font-weight: bold; color: #0369a1; }
+    .state-val { font-size: 1.2rem; font-weight: bold; color: #0c4a6e; }
+
+    .slider-box { display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px; }
+    input[type=range] { width: 100%; height: 8px; cursor: pointer; }
+    .ticks { display: flex; justify-content: space-between; font-size: 0.8rem; color: #64748b; font-weight: bold; }
+
+    .btn-group { display: flex; gap: 10px; justify-content: center; }
+    .btn { padding: 8px 16px; border: 1px solid #cbd5e1; border-radius: 6px; background: #f8fafc; font-weight: bold; cursor: pointer; }
+    .btn:hover { background: #e2e8f0; }
+
+    .worksheet { background: white; padding: 20px; border-radius: 12px; border: 1px solid #cbd5e1; max-width: 900px; width: 100%; margin-top: 20px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; font-size: 0.85rem; }
+    th { background: #f8fafc; }
+    textarea { width: 100%; height: 45px; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; resize: vertical; }
+  </style>
+</head>
+<body>
+
+  <h1>Teilchenmodell & Aggregatzustände von Wasser</h1>
+  <p class="subtitle">Verändere die Temperatur mit dem Schieberegler und beobachte Bewegung und Rotation der Wasserteilchen.</p>
+
+  <div class="container">
+    <div class="card">
+      <h2>Teilchenebene (Offenes Becherglas)</h2>
+      <canvas id="pCanvas" width="300" height="300"></canvas>
+    </div>
+    <div class="card">
+      <h2>Stoffebene (Makroskopisch)</h2>
+      <canvas id="mCanvas" width="300" height="300"></canvas>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="info-box">
+      <div>Temperatur: <span class="temp-val" id="tempDisp">20 °C</span></div>
+      <div>Zustand: <span class="state-val" id="stateDisp">Flüssig</span></div>
+    </div>
+
+    <div class="slider-box">
+      <input type="range" id="tempSlider" min="-20" max="120" step="1" value="20">
+      <div class="ticks">
+        <span>-20 °C (Eis)</span>
+        <span>0 °C (Schmelzpunkt)</span>
+        <span>100 °C (Siedepunkt)</span>
+        <span>120 °C (Gas)</span>
+      </div>
+    </div>
+
+    <div class="btn-group">
+      <button class="btn" id="btnIce">Eis (-10 °C)</button>
+      <button class="btn" id="btnWater">Wasser (20 °C)</button>
+      <button class="btn" id="btnGas">Dampf (110 °C)</button>
+    </div>
+  </div>
+
+  <div class="worksheet">
+    <h3>Arbeitsblatt: Beobachtungen eintragen</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Eigenschaft</th>
+          <th>Fest (Eis) [&lt; 0 °C]</th>
+          <th>Flüssig (Wasser) [0 – 100 °C]</th>
+          <th>Gasförmig [&gt; 100 °C]</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Teilchenbewegung & Rotation</strong></td>
+          <td><textarea placeholder="Beobachtung..."></textarea></td>
+          <td><textarea placeholder="Beobachtung..."></textarea></td>
+          <td><textarea placeholder="Beobachtung..."></textarea></td>
+        </tr>
+        <tr>
+          <td><strong>Teilchenabstand & Ordnung</strong></td>
+          <td><textarea placeholder="Beobachtung..."></textarea></td>
+          <td><textarea placeholder="Beobachtung..."></textarea></td>
+          <td><textarea placeholder="Beobachtung..."></textarea></td>
+        </tr>
+        <tr>
+          <td><strong>Anziehungskräfte</strong></td>
+          <td><textarea placeholder="Beobachtung..."></textarea></td>
+          <td><textarea placeholder="Beobachtung..."></textarea></td>
+          <td><textarea placeholder="Beobachtung..."></textarea></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    window.onload = function() {
+      const pCanvas = document.getElementById('pCanvas');
+      const pCtx = pCanvas.getContext('2d');
+      const mCanvas = document.getElementById('mCanvas');
+      const mCtx = mCanvas.getContext('2d');
+      
+      const slider = document.getElementById('tempSlider');
+      const tempDisp = document.getElementById('tempDisp');
+      const stateDisp = document.getElementById('stateDisp');
+
+      let T = parseInt(slider.value);
+      const particleSize = 12;
+      const particles = [];
+
+      const beaker = { x: 50, y: 50, w: 200, h: 220, bottom: 270 };
+
+      // Initialisierung der Teilchen im Kristallgitter
+      const cols = 6, rows = 6, spacing = 22;
+      const startX = beaker.x + (beaker.w - (cols - 1) * spacing) / 2;
+      const startY = beaker.bottom - 20 - (rows - 1) * spacing;
+
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const bx = startX + c * spacing;
+          const by = startY + r * spacing;
+          particles.push({
+            x: bx, y: by,
+            vx: (Math.random() - 0.5) * 2,
+            vy: (Math.random() - 0.5) * 2,
+            baseX: bx, baseY: by,
+            angle: 0, // Rotationswinkel in Radiant
+            rotSpeed: (Math.random() > 0.5 ? 1 : -1) * (0.02 + Math.random() * 0.03) // Drehrichtung & Tempo
+          });
+        }
+      }
+
+      slider.addEventListener('input', function() {
+        T = parseInt(this.value);
+        updateUI();
+      });
+
+      document.getElementById('btnIce').onclick = function() { setT(-10); };
+      document.getElementById('btnWater').onclick = function() { setT(20); };
+      document.getElementById('btnGas').onclick = function() { setT(110); };
+
+      function setT(val) {
+        slider.value = val;
+        T = val;
+        updateUI();
+      }
+
+      function updateUI() {
+        tempDisp.innerText = T + " °C";
+        if (T < 0) stateDisp.innerText = "Fest (Eis)";
+        else if (T === 0) stateDisp.innerText = "Schmelzen / Erstarren (0 °C)";
+        else if (T < 100) stateDisp.innerText = "Flüssig (Wasser)";
+        else if (T === 100) stateDisp.innerText = "Verdampfen / Kondensieren (100 °C)";
+        else stateDisp.innerText = "Gasförmig (Wasserdampf)";
+      }
+
+      // Blaues Dreieck mit eigener Rotation zeichnen
+      function drawTriangle(ctx, x, y, size, angle) {
+        ctx.save();
+        ctx.translate(x, y); // Zum Teilchenmittelpunkt verschieben
+        ctx.rotate(angle);   // Um die eigene Achse drehen
+
+        ctx.fillStyle = "#0284c7";
+        ctx.strokeStyle = "#0369a1";
+        ctx.lineWidth = 1.5;
+
+        ctx.beginPath();
+        ctx.moveTo(0, -size / 1.5);
+        ctx.lineTo(-size / 2, size / 2);
+        ctx.lineTo(size / 2, size / 2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.restore();
+      }
+
+      function drawBeaker(ctx) {
+        ctx.strokeStyle = "#334155";
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        // Offenes Becherglas (nur Seitenwände und Boden)
+        ctx.moveTo(beaker.x, beaker.y);
+        ctx.lineTo(beaker.x, beaker.bottom);
+        ctx.lineTo(beaker.x + beaker.w, beaker.bottom);
+        ctx.lineTo(beaker.x + beaker.w, beaker.y);
+        ctx.stroke();
+      }
+
+      function updateParticles() {
+        const minX = beaker.x + particleSize;
+        const maxX = beaker.x + beaker.w - particleSize;
+        const maxY = beaker.bottom - particleSize;
+
+        if (T < 0) {
+          // FEST: Feste Ausrichtung (keine Rotation), Zittern am Gitterplatz
+          const vib = Math.max(0.2, (T + 20) / 20 * 1.5);
+          particles.forEach(p => {
+            p.x = p.baseX + (Math.random() - 0.5) * vib;
+            p.y = p.baseY + (Math.random() - 0.5) * vib;
+            p.angle = 0; // Feste Ausrichtung im Eisgitter
+          });
+        } else if (T <= 100) {
+          // FLÜSSIG: Schwerkraft hält unten, freie Bewegung UND Eigenrotation
+          const speed = 0.5 + (T / 100) * 2.5;
+          const rotMult = 0.5 + (T / 100) * 2.0; // Rotation beschleunigt bei höherer Temperatur
+          const liquidTop = 160;
+
+          particles.forEach(p => {
+            p.vy += 0.12; // Schwerkraft
+            p.x += p.vx * speed;
+            p.y += p.vy * speed;
+            
+            // Rotation im flüssigen Zustand
+            p.angle += p.rotSpeed * rotMult;
+
+            if (p.x < minX) { p.x = minX; p.vx *= -1; }
+            if (p.x > maxX) { p.x = maxX; p.vx *= -1; }
+            if (p.y > maxY) { p.y = maxY; p.vy *= -0.6; }
+            if (p.y < liquidTop) { p.y = liquidTop; p.vy *= -0.6; }
+          });
+
+          // Leichte Abstoßung untereinander
+          for (let i = 0; i < particles.length; i++) {
+            for (let j = i + 1; j < particles.length; j++) {
+              let dx = particles[j].x - particles[i].x;
+              let dy = particles[j].y - particles[i].y;
+              let d = Math.sqrt(dx*dx + dy*dy);
+              if (d < particleSize * 1.5) {
+                particles[i].x -= dx * 0.05; particles[i].y -= dy * 0.05;
+                particles[j].x += dx * 0.05; particles[j].y += dy * 0.05;
+              }
+            }
+          }
+        } else {
+          // GASFÖRMIG (> 100 °C): Freie schnelle Bewegung & schnelle Rotation
+          const speed = 3 + ((T - 100) / 20) * 3;
+          const rotMult = 3.5;
+
+          particles.forEach(p => {
+            p.x += p.vx * speed;
+            p.y += p.vy * speed;
+
+            // Schnelle Rotation im Gaszustand
+            p.angle += p.rotSpeed * rotMult;
+
+            if (p.x < minX) { p.x = minX; p.vx *= -1; }
+            if (p.x > maxX) { p.x = maxX; p.vx *= -1; }
+            if (p.y > maxY) { p.y = maxY; p.vy *= -1; }
+
+            // Oben entweichen & unten wieder nachführen
+            if (p.y < 0) {
+              p.y = maxY;
+              p.x = minX + Math.random() * (maxX - minX);
+            }
+          });
+        }
+      }
+
+      function render() {
+        pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
+        mCtx.clearRect(0, 0, mCanvas.width, mCanvas.height);
+
+        drawBeaker(pCtx);
+        drawBeaker(mCtx);
+
+        // Teilchen als rotierende blaue Dreiecke zeichnen
+        particles.forEach(p => {
+          drawTriangle(pCtx, p.x, p.y, particleSize, p.angle);
+        });
+
+        // Makroskopische Ebene (Stoffebene)
+        if (T < 0) {
+          mCtx.fillStyle = "rgba(186, 230, 253, 0.8)";
+          mCtx.strokeStyle = "#38bdf8";
+          mCtx.fillRect(beaker.x + 30, beaker.bottom - 70, 60, 60);
+          mCtx.strokeRect(beaker.x + 30, beaker.bottom - 70, 60, 60);
+          mCtx.fillRect(beaker.x + 100, beaker.bottom - 60, 55, 55);
+          mCtx.strokeRect(beaker.x + 100, beaker.bottom - 60, 55, 55);
+        } else if (T <= 100) {
+          mCtx.fillStyle = "rgba(56, 189, 248, 0.6)";
+          mCtx.fillRect(beaker.x + 2, 160, beaker.w - 4, beaker.bottom - 162);
+        } else {
+          mCtx.fillStyle = "rgba(203, 213, 225, 0.5)";
+          for (let i = 0; i < 4; i++) {
+            let cx = beaker.x + 40 + i * 35;
+            let cy = beaker.y + 40 + Math.sin(Date.now() * 0.003 + i) * 15;
+            mCtx.beginPath();
+            mCtx.arc(cx, cy, 25, 0, Math.PI * 2);
+            mCtx.fill();
+          }
+        }
+
+        updateParticles();
+        requestAnimationFrame(render);
+      }
+
+      updateUI();
+      render();
+    };
+  </script>
+</body>
+</html>
